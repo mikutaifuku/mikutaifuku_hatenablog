@@ -1,0 +1,147 @@
+---
+title: "ggplot2でfacetごとのヒストグラムに色んな情報を付与する"
+author: "T.Fukui"
+date: "2019/05/10"
+output: 
+    html_document:
+        theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+大した内容ではないですが、仕事で使ったので自分用のメモで結構適当です。
+
+## 概要
+以下のような特徴を備えたグラフを作ります。
+
+* facetごとのヒストグラムに、要約統計量（平均値、最小値、最大値）の線を引く
+* 各グラフの右上に、テキストで要約統計量を出力
+* グループ名の後ろに(n = xx)というような、n数を付与
+
+## 使用データ
+データはirisデータを使用します。
+
+### グループごとの要約統計量
+SpeciesごとにSepal.Lengthの要約統計用と、出力用のテキストを作成します。
+
+```{r}
+df <- iris %>% select(x = Sepal.Length, group = Species)
+df_summary <- df %>% 
+    group_by(group) %>% 
+    summarise(n = n(),
+              mean_x = mean(x),
+              min_x = min(x),
+              max_x = max(x),
+              sd_x =sd(x)) %>% 
+    mutate(group_label = paste0(group, " (n = ", n, ")"),
+           mean_label = paste0("Mean : ", round(mean_x, 2)),
+           sd_label = paste0("SD : ", round(sd_x, 2)),
+           min_label = paste0("Min : ", round(min_x, 2)),
+           max_label = paste0("Max : ", round(max_x, 2))) %>% 
+    mutate(text_label = paste0(mean_label,"\n",sd_label,"\n",min_label,"\n",max_label))
+```
+
+```{r}
+df_summary
+```
+
+### 元データの加工
+元データに各グループのn数を付与
+
+```{r}
+df_plot <- df %>% 
+    left_join(df_summary %>% select(group, group_label), by = "group")
+```
+
+### プロット（完成）
+```{r}
+x_pos <- max(df_summary$max_x)
+y_pos <- Inf
+
+g <- ggplot(df_plot, aes(x)) + 
+    theme_minimal() +
+    geom_histogram(fill="darkgrey") + 
+    geom_vline(data=df_summary, aes(xintercept=mean_x), linetype="dashed", color="darkred") + 
+    geom_vline(data=df_summary, aes(xintercept=min_x), linetype="dashed", color="darkred") + 
+    geom_vline(data=df_summary, aes(xintercept=max_x), linetype="dashed", color="darkred") + 
+    geom_text(data=df_summary, aes(x=x_pos, y=y_pos, label=text_label),
+              colour="darkred", inherit.aes=FALSE, vjust="inward", hjust="inward") +
+    facet_wrap(~group_label, ncol=1) +
+    labs(x="Sepal.Length")
+
+plot(g)
+```
+
+## プロットを全ての変数に対して繰り返す
+
+加工処理とプロット処理を関数化します。 %>%処理を使用した関数なので、enquo()と!!を使います（この話、しっかり理解していないけど、今は気にしない）
+
+```{r}
+Make_Data <- function(d, group_var, x_var){
+    
+    df <- d %>% select(x = !!x_var, group = !!group_var)
+    
+    df_summary <- df %>% 
+        group_by(group) %>% 
+        summarise(n = n(),
+                  mean_x = mean(x),
+                  min_x = min(x),
+                  max_x = max(x),
+                  sd_x =sd(x)) %>% 
+        mutate(group_label = paste0(group, " (n = ", n, ")"),
+               mean_label = paste0("Mean : ", round(mean_x, 2)),
+               sd_label = paste0("SD : ", round(sd_x, 2)),
+               min_label = paste0("Min : ", round(min_x, 2)),
+               max_label = paste0("Max : ", round(max_x, 2))) %>% 
+        mutate(text_label = paste0(mean_label,"\n",sd_label,"\n",min_label,"\n",max_label))
+    
+    df_plot <- df %>% 
+        left_join(df_summary %>% select(group, group_label), by = "group")
+    
+    return(list(df_plot, df_summary))
+}
+```
+
+```{r}
+Make_Plot <- function(d_summary, d_plot, x_var){
+    
+    x_pos <- max(d_summary$max_x)
+    y_pos <- Inf
+    x_var_name <- quo_name(x_var)
+    
+    g <- ggplot(d_plot, aes(x)) + 
+        theme_minimal() +
+        geom_histogram(fill="darkgrey") + 
+        geom_vline(data=d_summary, aes(xintercept=mean_x), linetype="dashed", color="darkred") + 
+        geom_vline(data=d_summary, aes(xintercept=min_x), linetype="dashed", color="darkred") +
+        geom_vline(data=d_summary, aes(xintercept=max_x), linetype="dashed", color="darkred") + 
+        geom_text(data=d_summary, aes(x=x_pos, y=y_pos, label=text_label),
+                  colour="darkred", inherit.aes=FALSE, vjust="inward", hjust="inward") +
+        facet_wrap(~group_label, ncol=1) +
+        labs(x=x_var_name)
+
+}
+```
+
+```{r}
+x_vars <- quos(Sepal.Length, Sepal.Width, Petal.Length, Petal.Width)
+
+for (i in 1:length(x_vars)) {
+    
+    data_list <- Make_Data(d=iris, x_var=x_vars[[i]], group_var=quo(Species))
+    
+    df_plot <- data_list[[1]]
+    df_summary <- data_list[[2]]
+    
+    g_x <- Make_Plot(d_summary=df_summary, d_plot=df_plot, x_var=x_vars[[i]])
+    
+    ggsave(plot = g_x, filename = paste0("plot/", quo_name(x_vars[[i]]), ".png"))
+    
+}
+```
