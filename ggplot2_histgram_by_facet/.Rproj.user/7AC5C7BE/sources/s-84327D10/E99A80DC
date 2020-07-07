@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1594122590863.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "E99A80DC",
+    "lastKnownWriteTime" : 1594122601,
+    "last_content_update" : 1594122601803,
+    "path" : "~/Works/mikutaifuku_hatenablog/ggplot2_histgram_by_facet/ggplot2_histgram_by_facet.Rmd",
+    "project_path" : "ggplot2_histgram_by_facet.Rmd",
+    "properties" : {
+        "cursorPosition" : "13,6",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}
